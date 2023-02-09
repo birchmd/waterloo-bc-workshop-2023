@@ -74,8 +74,9 @@ Use the command `./near login` and follow the instructions.
 
 ## Deploying and interacting with the contract
 
-If the workshop has not started yet, then you can stop here; having the setup steps done is enough.
-In fact, the following steps probably won't even work until the day before the workshop :)
+> **Warning**
+> If the workshop has not started yet, then you can stop here; having the setup steps done is enough.
+> In fact, the following steps probably won't even work until the day before the workshop :)
 
 ### 1. Compile the contract
 
