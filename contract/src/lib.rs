@@ -11,7 +11,7 @@ use types::{
     MessageStatus,
 };
 
-mod types;
+pub mod types;
 
 /// A deposit is required to send a contact request. This is meant to discourage spam and
 /// to cover the cost of inserting a storage key into another contract.
@@ -119,8 +119,8 @@ impl MessengerContract {
         );
 
         Self::ext(account)
+            .with_attached_deposit(deposit)
             .receive_message(message)
-            .transfer(deposit)
     }
 
     /// Called by another Messenger contract when their user wants to send us a message.
@@ -172,8 +172,8 @@ impl MessengerContract {
 
         let this = env::current_account_id();
         Self::ext(account.clone())
+            .with_attached_deposit(deposit)
             .ext_add_contact()
-            .transfer(deposit)
             .then(Self::ext(this).add_contact_callback(account))
     }
 

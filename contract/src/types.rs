@@ -7,7 +7,7 @@ use near_sdk::{
 };
 
 /// Different possible responses when we attempt to add an account as a contact.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AddContactResponse {
     /// This account does not support the Messenger protocol.
@@ -25,7 +25,7 @@ pub enum AddContactResponse {
 }
 
 /// Different possible responses when we accept an add contact request.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AcceptContactResponse {
     /// This account does not support the Messenger protocol.
@@ -40,7 +40,7 @@ pub enum AcceptContactResponse {
     Accepted,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum MessageResponse {
     InvalidAccount,
@@ -51,11 +51,13 @@ pub enum MessageResponse {
 }
 
 /// Unique ID for messages the contract receives.
-#[derive(Debug, Copy, Clone, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(
+    Debug, Copy, Clone, BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Eq,
+)]
 #[serde(crate = "near_sdk::serde")]
 pub struct MessageId(pub near_sdk::CryptoHash);
 
-#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Message {
     pub sender: AccountId,
@@ -74,7 +76,9 @@ impl Message {
     }
 }
 
-#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(
+    Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Copy, PartialEq, Eq,
+)]
 #[serde(crate = "near_sdk::serde")]
 pub enum MessageStatus {
     Read,
@@ -82,7 +86,9 @@ pub enum MessageStatus {
 }
 
 /// The status of another account from the perspective of our contract.
-#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(
+    Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Copy, PartialEq, Eq,
+)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AccountStatus {
     /// No record of the account.

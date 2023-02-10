@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-workspaces = "0.7.0"
+aurora-sdk-integration-tests = { git = "https://github.com/aurora-is-near/aurora-contracts-sdk.git", rev = "e4dd3b2836819ffeec282ae3e5dda43230bf84ef" }
+near-messenger = { path = "../contract" }
+serde_json = "1"
