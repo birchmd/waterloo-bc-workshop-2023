@@ -1,0 +1,7 @@
+[package]
+name = "near-messenger-integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+workspaces = "0.7.0"

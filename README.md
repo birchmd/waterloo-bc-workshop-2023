@@ -41,9 +41,9 @@ If you're curious about what this is, see the [cargo-near repository](https://gi
 
 
 ### 7. Try building the contract in this repository
-Use the command
+There is a convenience script to do this in this repository (Unix platforms only)
 ```sh
-cargo near build
+./build_contract.sh
 ```
 
 If you are having problems with this be sure to raise it with me during the workshop.
@@ -80,12 +80,13 @@ Use the command `./near login` and follow the instructions.
 
 ### 1. Compile the contract
 
-Run `cargo near build` (even if you ran it earlier, run it again since I probably updated the contract in the meantime).
+Run `./build_contract.sh` (even if you ran it earlier, run it again since I probably updated the contract in the meantime).
 
-### 2. Deploy the contract
+### 2. Deploy and initialize the contract
 
 ```sh
 ./near deploy chat.$MY_ACCOUNT ./target/near/near_messenger.wasm
+./near call chat.$MY_ACCOUNT new
 ```
 
 ### 3. Add a contact
@@ -106,7 +107,7 @@ where `$OTHER_ACCOUNT` is the account ID of whoever sent you the contact request
 ### 4. Send a message
 
 ```sh
-./near call chat.$MY_ACCOUNT send '{"account": "chat.waterloo_bc_demo_2023.testnet", "message": "Hello, Near!"}' --deposit 1
+./near call chat.$MY_ACCOUNT send_message '{"account": "chat.waterloo_bc_demo_2023.testnet", "message": "Hello, Near!"}' --deposit 1
 ```
 
 If you added someone else as a contact, send them a message too.
