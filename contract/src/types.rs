@@ -55,7 +55,30 @@ pub enum MessageResponse {
     Debug, Copy, Clone, BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Eq,
 )]
 #[serde(crate = "near_sdk::serde")]
+#[serde(into = "String")]
+#[serde(try_from = "String")]
 pub struct MessageId(pub near_sdk::CryptoHash);
+
+// Use base58 to represent MessageId as a String.
+impl From<MessageId> for String {
+    fn from(value: MessageId) -> Self {
+        near_sdk::bs58::encode(value.0).into_string()
+    }
+}
+
+impl TryFrom<String> for MessageId {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let bytes = near_sdk::bs58::decode(value)
+            .into_vec()
+            .map_err(|e| format!("{:?}", e))?;
+        let hash: near_sdk::CryptoHash = bytes
+            .try_into()
+            .map_err(|_| "Id must be 32 bytes!".to_string())?;
+        Ok(Self(hash))
+    }
+}
 
 #[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
@@ -74,6 +97,21 @@ impl Message {
         let hash = env::sha256_array(&bytes);
         MessageId(hash)
     }
+}
+
+#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(crate = "near_sdk::serde")]
+pub struct MessageWithId {
+    pub id: MessageId,
+    pub message: Message,
+}
+
+#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(crate = "near_sdk::serde")]
+pub struct UnreadMessageView {
+    pub id: MessageId,
+    pub sender: AccountId,
+    pub timestamp: U64,
 }
 
 #[derive(

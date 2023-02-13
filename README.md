@@ -85,29 +85,29 @@ Run `./build_contract.sh` (even if you ran it earlier, run it again since I prob
 ### 2. Deploy and initialize the contract
 
 ```sh
-./near deploy chat.$MY_ACCOUNT ./target/near/near_messenger.wasm
-./near call chat.$MY_ACCOUNT new
+./near deploy chat.$MY_ACCOUNT ./target/near/near_messenger/near_messenger.wasm
+./near call --accountId $MY_ACCOUNT chat.$MY_ACCOUNT new
 ```
 
 ### 3. Add a contact
 
 ```sh
-./near call chat.$MY_ACCOUNT add_contact '{"account": "chat.waterloo_bc_demo_2023.testnet"}' --deposit 1
+./near call --accountId $MY_ACCOUNT chat.$MY_ACCOUNT add_contact '{"account": "chat.waterloo_bc_demo_2023.testnet"}' --deposit 1
 ```
 
 You can also try adding someone else besides the demo account, ask your neighbour!
 If someone does send you a contact request then don't forget to accept it.
 
 ```sh
-./near call chat.$MY_ACCOUNT accept_contact '{"account": "$OTHER_ACCOUNT"}' --deposit 1
+./near call --accountId $MY_ACCOUNT chat.$MY_ACCOUNT accept_contact '{"account": "$OTHER_ACCOUNT"}'
 ```
 
-where `$OTHER_ACCOUNT` is the account ID of whoever sent you the contact request.
+where `$OTHER_ACCOUNT` is the account ID of whoever sent you the contact request (must include the `chat.` prefix).
 
 ### 4. Send a message
 
 ```sh
-./near call chat.$MY_ACCOUNT send_message '{"account": "chat.waterloo_bc_demo_2023.testnet", "message": "Hello, Near!"}' --deposit 1
+./near call --accountId $MY_ACCOUNT chat.$MY_ACCOUNT send_message '{"account": "chat.waterloo_bc_demo_2023.testnet", "message": "Hello, Near!"}' --deposit 1
 ```
 
 If you added someone else as a contact, send them a message too.
@@ -115,11 +115,20 @@ If you added someone else as a contact, send them a message too.
 ### 5. Read any responses
 
 ```sh
-./near view chat.$MY_ACCOUNT unread
+./near view chat.$MY_ACCOUNT view_unread
 ```
 
 ```sh
-./near call chat.$MY_ACCOUNT read '{"account": "$MSG_SENDER", "message_id": "$MSG_ID"}'
+./near call --accountId $MY_ACCOUNT chat.$MY_ACCOUNT read_message '{"message_id": "$MSG_ID"}'
 ```
 
-where `$MSG_SENDER` and `$MSG_ID` will have come from the output of the `unread` command.
+where `$MSG_ID` will comes from the output of the `view_unread` command.
+
+You can also view your message history with another user
+
+```sh
+./near view chat.$MY_ACCOUNT view_thread '{"sender": "$OTHER_ACCOUNT"}'
+```
+
+Note: this only shows the messages you have received, not the ones you have sent.
+As an exercise, could you write a function that reproduces the full conversation?

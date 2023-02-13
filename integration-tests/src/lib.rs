@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use aurora_sdk_integration_tests::{tokio, utils, workspaces};
+    use aurora_sdk_integration_tests::{
+        tokio, utils,
+        workspaces::{self, AccountId},
+    };
     use near_messenger::types;
 
     #[tokio::test]
@@ -26,6 +29,16 @@ mod tests {
             .unwrap();
         assert_eq!(response, types::AddContactResponse::Pending);
 
+        let pending_contacts: Vec<AccountId> = bob
+            .owner
+            .view(bob.contract.id(), "view_pending_contacts")
+            .args(b"{}".to_vec())
+            .await
+            .unwrap()
+            .json()
+            .unwrap();
+        assert_eq!(pending_contacts.len(), 1);
+
         // Bob accepts Alice as a contact
         let response: types::AcceptContactResponse = bob
             .owner
@@ -40,6 +53,17 @@ mod tests {
             .json()
             .unwrap();
         assert_eq!(response, types::AcceptContactResponse::Accepted);
+
+        // No longer any pending requests after Bob accepts
+        let pending_contacts: Vec<AccountId> = bob
+            .owner
+            .view(bob.contract.id(), "view_pending_contacts")
+            .args(b"{}".to_vec())
+            .await
+            .unwrap()
+            .json()
+            .unwrap();
+        assert_eq!(pending_contacts.len(), 0);
 
         // Alice sends Bob a message
         let response: types::MessageResponse = alice
@@ -58,7 +82,17 @@ mod tests {
             .unwrap();
         assert_eq!(response, types::MessageResponse::Received);
 
-        let messages: Vec<types::Message> = bob
+        let unread: Vec<types::UnreadMessageView> = bob
+            .owner
+            .view(bob.contract.id(), "view_unread")
+            .args(b"{}".to_vec())
+            .await
+            .unwrap()
+            .json()
+            .unwrap();
+        assert_eq!(unread.len(), 1);
+
+        let messages: Vec<types::MessageWithId> = bob
             .owner
             .view(bob.contract.id(), "view_thread")
             .args_json(serde_json::json!({
@@ -70,7 +104,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(messages.len(), 1);
-        assert_eq!(messages.first().unwrap().content, "Hello, Bob!");
+        assert_eq!(messages.first().unwrap().message.content, "Hello, Bob!");
     }
 
     async fn setup_messenger_contract(

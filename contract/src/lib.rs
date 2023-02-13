@@ -8,7 +8,7 @@ use near_sdk::{
 };
 use types::{
     AcceptContactResponse, AccountStatus, AddContactResponse, Message, MessageId, MessageResponse,
-    MessageStatus,
+    MessageStatus, MessageWithId, UnreadMessageView,
 };
 
 pub mod types;
@@ -26,9 +26,9 @@ const DEFAULT_THREAD_SIZE: usize = 8;
 pub enum StoragePrefix {
     Accounts,
     Messages,
-    MessageStatuses,
-    InnerMessageStatuses(MessageStatus),
+    MessageStatuses(MessageStatus),
     LastReceivedMessage,
+    PendingContacts,
 }
 
 #[near_bindgen]
@@ -36,8 +36,10 @@ pub enum StoragePrefix {
 pub struct MessengerContract {
     accounts: LookupMap<AccountId, AccountStatus>,
     messages: LookupMap<MessageId, Message>,
-    message_statuses: LookupMap<MessageStatus, UnorderedSet<MessageId>>,
+    unread_messages: UnorderedSet<MessageId>,
+    read_messages: UnorderedSet<MessageId>,
     last_received_message: LookupMap<AccountId, MessageId>,
+    pending_contacts: UnorderedSet<AccountId>,
     owner: AccountId,
 }
 
@@ -45,20 +47,15 @@ pub struct MessengerContract {
 impl MessengerContract {
     #[init]
     pub fn new() -> Self {
-        let mut message_statuses = LookupMap::new(StoragePrefix::MessageStatuses);
-        message_statuses.insert(
-            &MessageStatus::Read,
-            &UnorderedSet::new(StoragePrefix::InnerMessageStatuses(MessageStatus::Read)),
-        );
-        message_statuses.insert(
-            &MessageStatus::Unread,
-            &UnorderedSet::new(StoragePrefix::InnerMessageStatuses(MessageStatus::Unread)),
-        );
         Self {
             accounts: LookupMap::new(StoragePrefix::Accounts),
             messages: LookupMap::new(StoragePrefix::Messages),
-            message_statuses,
+            unread_messages: UnorderedSet::new(StoragePrefix::MessageStatuses(
+                MessageStatus::Unread,
+            )),
+            read_messages: UnorderedSet::new(StoragePrefix::MessageStatuses(MessageStatus::Read)),
             last_received_message: LookupMap::new(StoragePrefix::LastReceivedMessage),
+            pending_contacts: UnorderedSet::new(StoragePrefix::PendingContacts),
             owner: env::predecessor_account_id(),
         }
     }
@@ -70,19 +67,45 @@ impl MessengerContract {
         self.messages.get(&message_id)
     }
 
-    pub fn view_thread(&self, sender: AccountId, max_size: Option<usize>) -> Vec<Message> {
+    pub fn view_unread(&self, max_size: Option<usize>) -> Vec<UnreadMessageView> {
+        let unread_set = &self.unread_messages;
+        let num_messages = unread_set.len() as usize;
+        let num_to_view = max_size.unwrap_or(num_messages).min(num_messages);
+        let mut result = Vec::with_capacity(num_to_view);
+        for id in unread_set.iter().take(num_to_view) {
+            let message = self.get_message(&id);
+            let view = UnreadMessageView {
+                id,
+                sender: message.sender,
+                timestamp: message.timestamp,
+            };
+            result.push(view);
+        }
+        result
+    }
+
+    /// Shows the history of messages we have received from the given `sender`.
+    pub fn view_thread(&self, sender: AccountId, max_size: Option<usize>) -> Vec<MessageWithId> {
         let max_size = max_size.unwrap_or(DEFAULT_THREAD_SIZE);
         let last_message = match self.last_received_message.get(&sender) {
             Some(id) => id,
             None => return Vec::new(),
         };
         let mut result = Vec::with_capacity(max_size);
-        let mut current_message = self.get_message(&last_message);
+        let mut current_message = MessageWithId {
+            id: last_message,
+            message: self.get_message(&last_message),
+        };
         for _ in 0..max_size {
-            let next_message = current_message.parent_id;
+            let next_message = current_message.message.parent_id;
             result.push(current_message);
             match next_message {
-                Some(id) => current_message = self.get_message(&id),
+                Some(id) => {
+                    current_message = MessageWithId {
+                        id,
+                        message: self.get_message(&id),
+                    };
+                }
                 None => break,
             }
         }
@@ -92,14 +115,21 @@ impl MessengerContract {
         result
     }
 
+    pub fn view_pending_contacts(&self, max_size: Option<usize>) -> Vec<AccountId> {
+        match max_size {
+            Some(size) => self.pending_contacts.iter().take(size).collect(),
+            None => self.pending_contacts.iter().collect(),
+        }
+    }
+
     /// In contrast to `view_message`, this function actually marks the message as read.
     /// Therefore, this must be done as a real transaction, not just a view call.
     pub fn read_message(&mut self, message_id: MessageId) -> Option<Message> {
         self.require_owner_only();
 
-        let was_unread = self.get_unread_set().remove(&message_id);
+        let was_unread = self.unread_messages.remove(&message_id);
         if was_unread {
-            self.get_read_set().insert(&message_id);
+            self.read_messages.insert(&message_id);
         }
         self.messages.get(&message_id)
     }
@@ -146,7 +176,7 @@ impl MessengerContract {
                 };
                 let message_id = message.id();
                 self.messages.insert(&message_id, &message);
-                self.get_unread_set().insert(&message_id);
+                self.unread_messages.insert(&message_id);
                 self.last_received_message.insert(&sender, &message_id);
 
                 MessageResponse::Received
@@ -196,12 +226,14 @@ impl MessengerContract {
             AccountStatus::Unknown => {
                 self.accounts
                     .insert(&request_sender, &AccountStatus::ReceivedPendingRequest);
+                self.pending_contacts.insert(&request_sender);
                 AddContactResponse::Pending
             }
             AccountStatus::SentPendingRequest => {
                 // We had sent a contact request and they added us back, so let's accept
                 self.accounts
                     .insert(&request_sender, &AccountStatus::Contact);
+                self.pending_contacts.remove(&request_sender);
                 AddContactResponse::Accepted
             }
             AccountStatus::ReceivedPendingRequest => AddContactResponse::Pending,
@@ -215,6 +247,8 @@ impl MessengerContract {
     /// 2. Call `ext_accept_contact` in the other account, to communicate the request is accepted.
     /// 3. Check the response from the account in a callback.
     pub fn accept_contact(&mut self, account: AccountId) -> PromiseOrValue<AcceptContactResponse> {
+        self.require_owner_only();
+
         let current_status = self
             .accounts
             .get(&account)
@@ -245,6 +279,7 @@ impl MessengerContract {
         match current_status {
             AccountStatus::SentPendingRequest => {
                 self.accounts.insert(&sender, &AccountStatus::Contact);
+                self.pending_contacts.remove(&sender);
                 AcceptContactResponse::Accepted
             }
             AccountStatus::Blocked => AcceptContactResponse::Blocked,
@@ -271,6 +306,14 @@ impl MessengerContract {
                 self.accounts.insert(&account, &AccountStatus::Contact);
                 AddContactResponse::Accepted
             }
+            Ok(AddContactResponse::AlreadyConnected) => {
+                let previous_status = self.accounts.insert(&account, &AccountStatus::Contact);
+                if let Some(AccountStatus::Contact) = previous_status {
+                    AddContactResponse::AlreadyConnected
+                } else {
+                    AddContactResponse::Accepted
+                }
+            }
             Ok(other_response) => other_response,
             Err(_e) => AddContactResponse::InvalidAccount,
         }
@@ -285,6 +328,7 @@ impl MessengerContract {
         match response {
             Ok(AcceptContactResponse::Accepted) => {
                 self.accounts.insert(&account, &AccountStatus::Contact);
+                self.pending_contacts.remove(&account);
                 AcceptContactResponse::Accepted
             }
             Ok(other_response) => other_response,
@@ -299,18 +343,6 @@ impl MessengerContract {
             self.owner == env::predecessor_account_id(),
             "Only the owner can use this method!"
         );
-    }
-
-    fn get_unread_set(&self) -> UnorderedSet<MessageId> {
-        self.message_statuses
-            .get(&MessageStatus::Unread)
-            .unwrap_or_else(|| env::panic_str("Missing unread messages set"))
-    }
-
-    fn get_read_set(&self) -> UnorderedSet<MessageId> {
-        self.message_statuses
-            .get(&MessageStatus::Read)
-            .unwrap_or_else(|| env::panic_str("Missing read messages set"))
     }
 
     fn get_message(&self, id: &MessageId) -> Message {
