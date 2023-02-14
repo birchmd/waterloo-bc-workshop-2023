@@ -1,3 +1,4 @@
+use events::Event;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     collections::{LookupMap, UnorderedSet},
@@ -11,6 +12,7 @@ use types::{
     MessageStatus, MessageWithId, UnreadMessageView,
 };
 
+pub mod events;
 pub mod types;
 
 /// A deposit is required to send a contact request. This is meant to discourage spam and
@@ -148,6 +150,9 @@ impl MessengerContract {
             "You can only send messages to your contacts!"
         );
 
+        let sender = env::current_account_id();
+        Event::message_sent(&sender, &account).emit();
+
         Self::ext(account)
             .with_attached_deposit(deposit)
             .receive_message(message)
@@ -178,6 +183,9 @@ impl MessengerContract {
                 self.messages.insert(&message_id, &message);
                 self.unread_messages.insert(&message_id);
                 self.last_received_message.insert(&sender, &message_id);
+
+                let receiver = env::current_account_id();
+                Event::message_received(&sender, &receiver, &message_id).emit();
 
                 MessageResponse::Received
             }
@@ -280,6 +288,10 @@ impl MessengerContract {
             AccountStatus::SentPendingRequest => {
                 self.accounts.insert(&sender, &AccountStatus::Contact);
                 self.pending_contacts.remove(&sender);
+
+                let this = env::current_account_id();
+                Event::new_contact(&this, &sender).emit();
+
                 AcceptContactResponse::Accepted
             }
             AccountStatus::Blocked => AcceptContactResponse::Blocked,
@@ -300,10 +312,18 @@ impl MessengerContract {
             Ok(AddContactResponse::Pending) => {
                 self.accounts
                     .insert(&account, &AccountStatus::SentPendingRequest);
+
+                let sender = env::current_account_id();
+                Event::pending_contact_request(&sender, &account).emit();
+
                 AddContactResponse::Pending
             }
             Ok(AddContactResponse::Accepted) => {
                 self.accounts.insert(&account, &AccountStatus::Contact);
+
+                let this = env::current_account_id();
+                Event::new_contact(&this, &account).emit();
+
                 AddContactResponse::Accepted
             }
             Ok(AddContactResponse::AlreadyConnected) => {
@@ -311,6 +331,8 @@ impl MessengerContract {
                 if let Some(AccountStatus::Contact) = previous_status {
                     AddContactResponse::AlreadyConnected
                 } else {
+                    let this = env::current_account_id();
+                    Event::new_contact(&this, &account).emit();
                     AddContactResponse::Accepted
                 }
             }
@@ -329,6 +351,10 @@ impl MessengerContract {
             Ok(AcceptContactResponse::Accepted) => {
                 self.accounts.insert(&account, &AccountStatus::Contact);
                 self.pending_contacts.remove(&account);
+
+                let this = env::current_account_id();
+                Event::new_contact(&this, &account).emit();
+
                 AcceptContactResponse::Accepted
             }
             Ok(other_response) => other_response,
@@ -338,11 +364,13 @@ impl MessengerContract {
 }
 
 impl MessengerContract {
-    fn require_owner_only(&self) {
+    fn require_owner_only(&self) -> AccountId {
+        let predecessor_account = env::predecessor_account_id();
         require!(
-            self.owner == env::predecessor_account_id(),
+            self.owner == predecessor_account,
             "Only the owner can use this method!"
         );
+        predecessor_account
     }
 
     fn get_message(&self, id: &MessageId) -> Message {

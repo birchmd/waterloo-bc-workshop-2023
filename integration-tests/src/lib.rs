@@ -2,9 +2,9 @@
 mod tests {
     use aurora_sdk_integration_tests::{
         tokio, utils,
-        workspaces::{self, AccountId},
+        workspaces::{self, result::ExecutionFinalResult, AccountId},
     };
-    use near_messenger::types;
+    use near_messenger::{events::Event, types};
 
     #[tokio::test]
     async fn test_near_messenger() {
@@ -14,7 +14,7 @@ mod tests {
         let bob = setup_messenger_contract("bob.test.near", &worker).await;
 
         // Alice adds Bob as a contact
-        let response: types::AddContactResponse = alice
+        let response = alice
             .owner
             .call(alice.contract.id(), "add_contact")
             .args_json(serde_json::json!({
@@ -24,10 +24,18 @@ mod tests {
             .max_gas()
             .transact()
             .await
-            .unwrap()
-            .json()
             .unwrap();
-        assert_eq!(response, types::AddContactResponse::Pending);
+
+        // An event should be emitted
+        let event = parse_event(&response, 0);
+        let event_details = event.as_pending_contact_request().unwrap();
+        assert_eq!(event_details.sender.as_str(), alice.contract.id().as_str());
+        assert_eq!(event_details.receiver.as_str(), bob.contract.id().as_str());
+        // Check output is correct
+        assert_eq!(
+            response.json::<types::AddContactResponse>().unwrap(),
+            types::AddContactResponse::Pending
+        );
 
         let pending_contacts: Vec<AccountId> = bob
             .owner
@@ -40,7 +48,7 @@ mod tests {
         assert_eq!(pending_contacts.len(), 1);
 
         // Bob accepts Alice as a contact
-        let response: types::AcceptContactResponse = bob
+        let response = bob
             .owner
             .call(bob.contract.id(), "accept_contact")
             .args_json(serde_json::json!({
@@ -49,10 +57,22 @@ mod tests {
             .max_gas()
             .transact()
             .await
-            .unwrap()
-            .json()
             .unwrap();
-        assert_eq!(response, types::AcceptContactResponse::Accepted);
+        // Event for Alice adding Bob as a contact
+        let event = parse_event(&response, 0);
+        let event_details = event.as_new_contact().unwrap();
+        assert_eq!(event_details.this.as_str(), alice.contract.id().as_str());
+        assert_eq!(event_details.contact.as_str(), bob.contract.id().as_str());
+        // Event for Bob adding Alice as a contact
+        let event = parse_event(&response, 1);
+        let event_details = event.as_new_contact().unwrap();
+        assert_eq!(event_details.this.as_str(), bob.contract.id().as_str());
+        assert_eq!(event_details.contact.as_str(), alice.contract.id().as_str());
+        // Check output is correct
+        assert_eq!(
+            response.json::<types::AcceptContactResponse>().unwrap(),
+            types::AcceptContactResponse::Accepted
+        );
 
         // No longer any pending requests after Bob accepts
         let pending_contacts: Vec<AccountId> = bob
@@ -66,7 +86,7 @@ mod tests {
         assert_eq!(pending_contacts.len(), 0);
 
         // Alice sends Bob a message
-        let response: types::MessageResponse = alice
+        let response = alice
             .owner
             .call(alice.contract.id(), "send_message")
             .args_json(serde_json::json!({
@@ -77,10 +97,22 @@ mod tests {
             .max_gas()
             .transact()
             .await
-            .unwrap()
-            .json()
             .unwrap();
-        assert_eq!(response, types::MessageResponse::Received);
+        // Event for Alice sending the message.
+        let event = parse_event(&response, 0);
+        let event_details = event.as_message_sent().unwrap();
+        assert_eq!(event_details.sender.as_str(), alice.contract.id().as_str());
+        assert_eq!(event_details.receiver.as_str(), bob.contract.id().as_str());
+        // Event for Bob receiving the message.
+        let event = parse_event(&response, 1);
+        let event_details = event.as_message_received().unwrap();
+        assert_eq!(event_details.sender.as_str(), alice.contract.id().as_str());
+        assert_eq!(event_details.receiver.as_str(), bob.contract.id().as_str());
+        // Check output is correct.
+        assert_eq!(
+            response.json::<types::MessageResponse>().unwrap(),
+            types::MessageResponse::Received
+        );
 
         let unread: Vec<types::UnreadMessageView> = bob
             .owner
@@ -156,5 +188,17 @@ mod tests {
     struct MessengerInstance {
         pub contract: workspaces::Contract,
         pub owner: workspaces::Account,
+    }
+
+    fn parse_event(response: &ExecutionFinalResult, index: usize) -> Event<'static> {
+        serde_json::from_str(
+            response
+                .logs()
+                .get(index)
+                .unwrap()
+                .strip_prefix("EVENT_JSON:")
+                .unwrap(),
+        )
+        .unwrap()
     }
 }
