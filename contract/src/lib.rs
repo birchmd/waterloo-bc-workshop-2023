@@ -235,6 +235,10 @@ impl MessengerContract {
                 self.accounts
                     .insert(&request_sender, &AccountStatus::ReceivedPendingRequest);
                 self.pending_contacts.insert(&request_sender);
+
+                let this = env::current_account_id();
+                Event::received_contact_request(&request_sender, &this).emit();
+
                 AddContactResponse::Pending
             }
             AccountStatus::SentPendingRequest => {
@@ -242,6 +246,10 @@ impl MessengerContract {
                 self.accounts
                     .insert(&request_sender, &AccountStatus::Contact);
                 self.pending_contacts.remove(&request_sender);
+
+                let this = env::current_account_id();
+                Event::new_contact(&this, &request_sender).emit();
+
                 AddContactResponse::Accepted
             }
             AccountStatus::ReceivedPendingRequest => AddContactResponse::Pending,

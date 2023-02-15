@@ -33,6 +33,15 @@ impl<'a> Event<'a> {
         Self::with_kind(kind)
     }
 
+    /// Create an event for having received a pending contact request.
+    pub fn received_contact_request(sender: &'a AccountId, receiver: &'a AccountId) -> Self {
+        let kind = EventKind::ReceivedContactRequest(PendingContactRequest {
+            sender: sender.borrowed(),
+            receiver: receiver.borrowed(),
+        });
+        Self::with_kind(kind)
+    }
+
     /// Create an event for having added a new contact.
     /// `this` refers to the account that has added the new contact.
     pub fn new_contact(this: &'a AccountId, contact: &'a AccountId) -> Self {
@@ -82,6 +91,7 @@ impl<'a> Event<'a> {
     pub fn as_pending_contact_request(&self) -> Option<&PendingContactRequest<'a>> {
         match &self.event_kind {
             EventKind::PendingContactRequest(x) => Some(x),
+            EventKind::ReceivedContactRequest(x) => Some(x),
             _ => None,
         }
     }
@@ -122,6 +132,7 @@ impl<'a> Event<'a> {
 #[serde(rename_all = "snake_case")]
 pub enum EventKind<'a> {
     PendingContactRequest(PendingContactRequest<'a>),
+    ReceivedContactRequest(PendingContactRequest<'a>),
     NewContact(NewContact<'a>),
     MessageSent(MessageSent<'a>),
     MessageReceived(MessageReceived<'a>),

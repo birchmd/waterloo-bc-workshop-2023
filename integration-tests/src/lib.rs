@@ -26,11 +26,15 @@ mod tests {
             .await
             .unwrap();
 
-        // An event should be emitted
-        let event = parse_event(&response, 0);
-        let event_details = event.as_pending_contact_request().unwrap();
-        assert_eq!(event_details.sender.as_str(), alice.contract.id().as_str());
-        assert_eq!(event_details.receiver.as_str(), bob.contract.id().as_str());
+        // An event should be emitted for having sent and received the contact request
+        let validate_event = |event: Event<'static>| {
+            let event_details = event.as_pending_contact_request().unwrap();
+            assert_eq!(event_details.sender.as_str(), alice.contract.id().as_str());
+            assert_eq!(event_details.receiver.as_str(), bob.contract.id().as_str());
+        };
+        validate_event(parse_event(&response, 0));
+        validate_event(parse_event(&response, 1));
+
         // Check output is correct
         assert_eq!(
             response.json::<types::AddContactResponse>().unwrap(),
