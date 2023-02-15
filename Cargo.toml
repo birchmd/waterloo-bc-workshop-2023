@@ -2,13 +2,11 @@
 members = [
   "contract",
   "integration-tests",
+  "tooling/indexer",
 ]
 exclude = ["target"]
 
 [profile.release]
 codegen-units = 1
-opt-level = "z"
+opt-level = 3
 lto = true
-debug = false
-panic = "abort"
-overflow-checks = true
