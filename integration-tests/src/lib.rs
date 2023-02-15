@@ -6,6 +6,9 @@ mod tests {
     };
     use near_messenger::{events::Event, types};
 
+    // This test is for the "happy path" of adding a contact, having them accept and then sending
+    // a message. It shows that the basic contract functionality works.
+    // EXERCISE: Write tests for the various error cases (e.g. sending message to a non-contact).
     #[tokio::test]
     async fn test_near_messenger() {
         let worker = workspaces::sandbox().await.unwrap();
@@ -20,7 +23,7 @@ mod tests {
             .args_json(serde_json::json!({
                 "account": "chat.bob.test.near",
             }))
-            .deposit(1_000_000_000_000_000_000_000_000)
+            .deposit(1_000_000_000_000_000_000_000_000) // 1 Near = 10^24 yoctoNear
             .max_gas()
             .transact()
             .await

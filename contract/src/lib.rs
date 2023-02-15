@@ -87,6 +87,8 @@ impl MessengerContract {
     }
 
     /// Shows the history of messages we have received from the given `sender`.
+    /// This method only shows the received messages (i.e. only half-the conversation).
+    /// EXERCISE: Write a function that shows both sides of the conversation. This could be an on-chain or off-chain function.
     pub fn view_thread(&self, sender: AccountId, max_size: Option<usize>) -> Vec<MessageWithId> {
         let max_size = max_size.unwrap_or(DEFAULT_THREAD_SIZE);
         let last_message = match self.last_received_message.get(&sender) {
@@ -159,6 +161,9 @@ impl MessengerContract {
     }
 
     /// Called by another Messenger contract when their user wants to send us a message.
+    /// The functionality of this method is minimal: it checks a few preconditions then
+    /// persists the message.
+    /// EXERCISE: Add functionality where it is possible to set an auto-reply on receiving a message.
     #[payable]
     pub fn receive_message(&mut self, content: String) -> MessageResponse {
         let required_deposit = compute_required_message_deposit(&content);

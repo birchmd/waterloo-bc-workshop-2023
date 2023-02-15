@@ -101,8 +101,6 @@ impl ReceiptHandler {
                                 let events =
                                     outcome.outcome.logs.into_iter().filter_map(parse_event);
                                 for event in events {
-                                    // Events from the chat contract are handled here
-                                    // EXERCISE: can you make the contents of a received message appear in the output as well?
                                     if let Err(e) = self.handle_event(event).await {
                                         tracing::warn!("Error while handling event: {:?}", e);
                                         self.send_manager_message(ManagerMessageKind::Shutdown(

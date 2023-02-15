@@ -136,6 +136,8 @@ pub enum AccountStatus {
     /// We received a request to connect with the account, but have not accepted it yet.
     ReceivedPendingRequest,
     /// We have blocked interactions with that account.
+    /// Being blocked is part of the model, but there is no functional way to block a user.
+    /// EXERCISE: implement functions for (un)blocking a user. Add integrations test for them.
     Blocked,
     /// Known account that we can interact with.
     Contact,
