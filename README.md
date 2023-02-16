@@ -1,5 +1,11 @@
 # Developing on Near Workshop: University of Waterloo (Feb 2023)
 
+## Background
+
+Before the hands-on portion of the workshop I'll do a little presentation with some background theory about developing on blockchain.
+
+[An Introduction to Blockchain slides](https://docs.google.com/presentation/d/1l-MyGYxD0p_YnHicv7T4RAVM5chswY8GuEetQ_vSvQs/edit?usp=sharing)
+
 ## Setup
 
 To prepare for the workshop, please complete the following steps.
@@ -73,10 +79,6 @@ Use the command `./near login` and follow the instructions.
 ```
 
 ## Deploying and interacting with the contract
-
-> **Warning**
-> If the workshop has not started yet, then you can stop here; having the setup steps done is enough.
-> In fact, the following steps probably won't even work until the day before the workshop :)
 
 ### 1. Compile the contract
 
