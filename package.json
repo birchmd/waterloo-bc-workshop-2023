@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "near-cli": "^3.4.2"
+  }
+}

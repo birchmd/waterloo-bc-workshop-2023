@@ -1,6 +1,4 @@
 /target
 /Cargo.lock
-package.json
-package-lock.json
 node_modules
 near
